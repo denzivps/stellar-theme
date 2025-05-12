@@ -33,7 +33,7 @@ echo "📦 react-feather installeren..."
 yarn add react-feather
 
 echo "🛠️ Database migreren..."
-yes | php artisan migrate
+php artisan migrate --force
 
 echo "⚙️ Node legacy provider instellen..."
 export NODE_OPTIONS=--openssl-legacy-provider
