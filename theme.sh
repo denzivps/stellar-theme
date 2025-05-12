@@ -4,7 +4,7 @@
 set -e
 
 # Theme URL
-THEME_URL="https://github.com/denzivps/stellar-theme/archive/refs/tags/pterodactyl.tar.gz"
+THEME_URL="https://github.com/denzivps/stellar-theme/archive/refs/tags/theme.tar.gz"
 
 # Tijdelijke map
 TEMP_DIR=$(mktemp -d)
