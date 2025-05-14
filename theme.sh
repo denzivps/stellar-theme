@@ -3,19 +3,21 @@
 # Stop if anything fails
 set -e
 
-# Function to show loading spinner
-show_loading() {
+# Function to show classic spinner
+show_spinner() {
     local pid=$1
     local delay=0.1
-    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-    while ps -p "$pid" > /dev/null 2>&1; do
-        local temp=${spinstr#?}
-        printf " [%c]  " "$spinstr"
-        local spinstr=$temp${spinstr%$temp}
+    local spinstr='|/-\'
+    local i=0
+
+    tput civis  # Verberg cursor
+    while kill -0 "$pid" 2>/dev/null; do
+        i=$(( (i+1) %4 ))
+        printf "\r [%c] " "${spinstr:$i:1}"
         sleep $delay
-        printf "\b\b\b\b\b\b"
     done
-    printf "    \b\b\b\b"
+    tput cnorm  # Herstel cursor
+    printf "\r [✓] \n"
 }
 
 # Theme URL
@@ -27,14 +29,12 @@ TEMP_DIR=$(mktemp -d)
 # Download theme
 echo -n "⏬ Theme downloaden..."
 curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz" > /dev/null 2>&1 &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
 # Extract theme
 echo -n "📦 Uitpakken..."
 tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR" > /dev/null 2>&1 &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
 # Find extracted theme directory
 THEME_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "stellar-theme-*")
@@ -46,72 +46,63 @@ fi
 # Copy theme files
 echo -n "🔁 Bestanden kopiëren naar /var/www/pterodactyl..."
 cp -r "$THEME_DIR/"* /var/www/pterodactyl/ > /dev/null 2>&1 &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
 # Change ownership and permissions
 echo -n "🔑 Machtigingen instellen..."
-chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl &
-show_loading $!
-echo " ✅"
+(chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl) > /dev/null 2>&1 &
+show_spinner $!
 
-# Go to Pterodactyl directory
+# Ga naar directory
 cd /var/www/pterodactyl
 
-# Check Node.js and Yarn
+# Check Node.js en Yarn
 if command -v node > /dev/null 2>&1 && command -v yarn > /dev/null 2>&1; then
     echo "✅ Node.js en Yarn zijn al geïnstalleerd."
 else
     echo -n "🔧 Node.js en Yarn installeren..."
     (
-        sudo apt-get install -y ca-certificates curl gnupg > /dev/null 2>&1
+        sudo apt-get install -y ca-certificates curl gnupg
         sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg > /dev/null 2>&1
-        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list > /dev/null 2>&1
-        sudo apt-get update > /dev/null 2>&1
-        sudo apt-get install -y nodejs > /dev/null 2>&1
-        sudo npm install -g yarn > /dev/null 2>&1
-    ) &
-    show_loading $!
-    echo " ✅"
+        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+        sudo apt-get update
+        sudo apt-get install -y nodejs
+        sudo npm install -g yarn
+    ) > /dev/null 2>&1 &
+    show_spinner $!
 fi
 
 # Install react-feather
 echo -n "📦 react-feather installeren..."
 yarn add react-feather > /dev/null 2>&1 &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
 # Migrate database
 echo -n "🛠️ Database migreren..."
 php artisan migrate --force > /dev/null 2>&1 &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
 # Set legacy provider
 echo -n "⚙️ Node legacy provider instellen..."
 export NODE_OPTIONS=--openssl-legacy-provider
 sleep 1 &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
 # Build production
 echo -n "🏗️ Productie build maken..."
 yarn build:production > /dev/null 2>&1 &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
 # Clear Laravel views
 echo -n "🧹 Laravel views cache legen..."
 php artisan view:clear > /dev/null 2>&1 &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
 # Restart webserver
 echo -n "🔄 Webserver herstarten..."
 sudo systemctl restart nginx > /dev/null 2>&1 || true &
-show_loading $!
-echo " ✅"
+show_spinner $!
 
-# Done
+# Klaar
 echo "✅ Theme succesvol geïnstalleerd!"
