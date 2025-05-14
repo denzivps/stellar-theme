@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Stop if anything fails
 set -e
 
 # Spinner functie (ASCII, werkt altijd)
@@ -18,86 +17,96 @@ show_spinner() {
     tput cnorm
 }
 
-# Theme URL
-THEME_URL="https://github.com/denzivps/stellar-theme/archive/refs/heads/main.tar.gz"
+# Functie om spinner te combineren met commando
+run_step() {
+    SPINNER_TEXT="$1"
+    shift
+    "$@" > /dev/null 2>&1 &
+    show_spinner $!
+}
 
-# Temporary directory
+# Theme URL + tijdelijke map
+THEME_URL="https://github.com/denzivps/stellar-theme/archive/refs/heads/main.tar.gz"
 TEMP_DIR=$(mktemp -d)
 
-# Download theme
+# Duidelijke echo's met iconen
 echo "⏬ Theme downloaden..."
-curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz" > /dev/null 2>&1 &
-show_spinner $!
+run_step "Theme downloaden..." curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz"
 
-# Extract theme
 echo "📦 Uitpakken..."
-tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR" > /dev/null 2>&1
-show_spinner $!
+run_step "Theme uitpakken..." tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR"
 
-# Find extracted theme directory
 THEME_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "stellar-theme-*")
-
 if [ ! -d "$THEME_DIR" ]; then
-  echo "❌ Theme-map niet gevonden."
-  exit 1
+    echo "❌ Theme-map niet gevonden."
+    exit 1
 fi
 
-# Copy theme files
 echo "🔁 Bestanden kopiëren naar /var/www/pterodactyl..."
-cp -r "$THEME_DIR/"* /var/www/pterodactyl/ > /dev/null 2>&1
-show_spinner $!
+run_step "Bestanden kopiëren..." cp -r "$THEME_DIR/"* /var/www/pterodactyl/
 
-# Change ownership and permissions
-chown -R www-data:www-data /var/www/pterodactyl
-chmod -R 755 /var/www/pterodactyl
+echo "🔑 Machtigingen instellen..."
+run_step "Rechten instellen..." bash -c "chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl"
 
-# Go to Pterodactyl directory
+# 💖 Bedankje + hart + enter
+echo
+echo "✅ Bedankt voor het gebruiken van deze installer!"
+sleep 2
+echo -e "\e[95m"
+echo "        ******       ******"
+echo "      **********   **********"
+echo "    ************* *************"
+echo "   *****************************"
+echo "   *****************************"
+echo "    ***************************"
+echo "      ***********************"
+echo "        *******************"
+echo "          ***************"
+echo "            ***********"
+echo "              *******"
+echo "                ***"
+echo "                 *"
+echo -e "\e[0m"
+echo
+echo "Druk op Enter om verder te gaan..."
+read -r
+echo
+
 cd /var/www/pterodactyl
 
-# Check if Node.js is installed
 if command -v node > /dev/null 2>&1 && command -v yarn > /dev/null 2>&1; then
     echo "✅ Node.js en Yarn zijn al geïnstalleerd."
 else
     echo "🔧 Node.js en Yarn installeren..."
-    sudo apt-get install -y ca-certificates curl gnupg > /dev/null 2>&1
-    sudo mkdir -p /etc/apt/keyrings
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg > /dev/null 2>&1
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list > /dev/null 2>&1
-    sudo apt-get update > /dev/null 2>&1
-    sudo apt-get install -y nodejs > /dev/null 2>&1
-    sudo npm install -g yarn > /dev/null 2>&1
+    run_step "Node.js + Yarn installeren..." bash -c '
+        sudo apt-get install -y ca-certificates curl gnupg
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+        sudo apt-get update
+        sudo apt-get install -y nodejs
+        sudo npm install -g yarn
+    '
 fi
-show_spinner $!
 
-# Install react-feather
 echo "📦 react-feather installeren..."
-yarn add react-feather > /dev/null 2>&1
-show_spinner $!
+run_step "react-feather installeren..." yarn add react-feather
 
-# Migrate database
 echo "🛠️ Database migreren..."
-php artisan migrate --force > /dev/null 2>&1
-show_spinner $!
+run_step "Database migreren..." php artisan migrate --force
 
-# Set Node.js legacy provider
 echo "⚙️ Node legacy provider instellen..."
 export NODE_OPTIONS=--openssl-legacy-provider
-show_spinner $!
+sleep 1  # kleine wacht nodig om spinner te triggeren
+run_step "Node legacy provider instellen..." sleep 1
 
-# Build production
 echo "🏗️ Productie build maken..."
-yarn build:production > /dev/null 2>&1
-show_spinner $!
+run_step "Build maken..." yarn build:production
 
-# Clear Laravel view cache
 echo "🧹 Laravel views cache legen..."
-php artisan view:clear > /dev/null 2>&1
-show_spinner $!
+run_step "Cache legen..." php artisan view:clear
 
-# Restart webserver
 echo "🔄 Webserver herstarten..."
-sudo systemctl restart nginx > /dev/null 2>&1 || true
-show_spinner $!
+run_step "Webserver herstarten..." sudo systemctl restart nginx || true
 
-# Done
 echo "✅ Theme succesvol geïnstalleerd!"
