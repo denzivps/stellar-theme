@@ -1,62 +1,58 @@
 #!/bin/bash
 
-# Stop if anything fails
 set -e
 
-# Function to show classic spinner
-show_spinner() {
+# Spinner functie
+spinner() {
     local pid=$1
-    local delay=0.1
-    local spinstr='|/-\'
+    local spin='|/-\\'
     local i=0
 
     tput civis  # Verberg cursor
-    while kill -0 "$pid" 2>/dev/null; do
+    while kill -0 $pid 2>/dev/null; do
         i=$(( (i+1) %4 ))
-        printf "\r [%c] " "${spinstr:$i:1}"
-        sleep $delay
+        printf "\r[%c] " "${spin:$i:1}"
+        sleep 0.1
     done
+    printf "\r[✓] "
     tput cnorm  # Herstel cursor
-    printf "\r [✓] \n"
+    echo
 }
 
 # Theme URL
 THEME_URL="https://github.com/denzivps/stellar-theme/archive/refs/heads/main.tar.gz"
-
-# Temporary directory
 TEMP_DIR=$(mktemp -d)
 
 # Download theme
 echo -n "⏬ Theme downloaden..."
 curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz" > /dev/null 2>&1 &
-show_spinner $!
+spinner $!
 
-# Extract theme
+# Uitpakken
 echo -n "📦 Uitpakken..."
 tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR" > /dev/null 2>&1 &
-show_spinner $!
+spinner $!
 
-# Find extracted theme directory
+# Theme folder zoeken
 THEME_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "stellar-theme-*")
 if [ ! -d "$THEME_DIR" ]; then
   echo "❌ Theme-map niet gevonden."
   exit 1
 fi
 
-# Copy theme files
+# Bestanden kopiëren
 echo -n "🔁 Bestanden kopiëren naar /var/www/pterodactyl..."
 cp -r "$THEME_DIR/"* /var/www/pterodactyl/ > /dev/null 2>&1 &
-show_spinner $!
+spinner $!
 
-# Change ownership and permissions
+# Machtigingen
 echo -n "🔑 Machtigingen instellen..."
 (chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl) > /dev/null 2>&1 &
-show_spinner $!
+spinner $!
 
-# Ga naar directory
 cd /var/www/pterodactyl
 
-# Check Node.js en Yarn
+# Node.js en Yarn
 if command -v node > /dev/null 2>&1 && command -v yarn > /dev/null 2>&1; then
     echo "✅ Node.js en Yarn zijn al geïnstalleerd."
 else
@@ -70,39 +66,39 @@ else
         sudo apt-get install -y nodejs
         sudo npm install -g yarn
     ) > /dev/null 2>&1 &
-    show_spinner $!
+    spinner $!
 fi
 
-# Install react-feather
+# React-feather installeren
 echo -n "📦 react-feather installeren..."
 yarn add react-feather > /dev/null 2>&1 &
-show_spinner $!
+spinner $!
 
-# Migrate database
+# Database migreren
 echo -n "🛠️ Database migreren..."
 php artisan migrate --force > /dev/null 2>&1 &
-show_spinner $!
+spinner $!
 
-# Set legacy provider
+# Legacy provider
 echo -n "⚙️ Node legacy provider instellen..."
 export NODE_OPTIONS=--openssl-legacy-provider
 sleep 1 &
-show_spinner $!
+spinner $!
 
-# Build production
+# Build maken
 echo -n "🏗️ Productie build maken..."
 yarn build:production > /dev/null 2>&1 &
-show_spinner $!
+spinner $!
 
-# Clear Laravel views
+# Laravel cache legen
 echo -n "🧹 Laravel views cache legen..."
 php artisan view:clear > /dev/null 2>&1 &
-show_spinner $!
+spinner $!
 
-# Restart webserver
+# Webserver herstarten
 echo -n "🔄 Webserver herstarten..."
 sudo systemctl restart nginx > /dev/null 2>&1 || true &
-show_spinner $!
+spinner $!
 
 # Klaar
 echo "✅ Theme succesvol geïnstalleerd!"
