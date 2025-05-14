@@ -2,61 +2,59 @@
 
 set -e
 
-# ASCII spinner functie
-spinner() {
+# Spinner functie (ASCII, werkt altijd)
+show_spinner() {
     local pid=$1
+    local delay=0.1
     local spin='|/-\\'
     local i=0
-
-    tput civis  # Verberg cursor
+    tput civis
     while kill -0 $pid 2>/dev/null; do
-        i=$(( (i + 1) % 4 ))
-        printf "\r[%c] " "${spin:$i:1}"
-        sleep 0.1
+        printf "\r[%c] %s" "${spin:i++%${#spin}:1}" "$SPINNER_TEXT"
+        sleep $delay
     done
-    printf "\r[✔] \n"
-    tput cnorm  # Cursor terug
+    printf "\r[✔] %s\n" "$SPINNER_TEXT"
+    tput cnorm
 }
 
-# Theme URL
+# Functie om spinner te combineren met commando
+run_step() {
+    SPINNER_TEXT="$1"
+    shift
+    "$@" > /dev/null 2>&1 &
+    show_spinner $!
+}
+
+# Theme URL + tijdelijke map
 THEME_URL="https://github.com/denzivps/stellar-theme/archive/refs/heads/main.tar.gz"
 TEMP_DIR=$(mktemp -d)
 
-# Download theme
-echo -n "⏬ Theme downloaden... "
-curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz" > /dev/null 2>&1 &
-spinner $!
+# Duidelijke echo's met iconen
+echo "⏬ Theme downloaden..."
+run_step "Theme downloaden..." curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz"
 
-# Uitpakken
-echo -n "📦 Uitpakken... "
-tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR" > /dev/null 2>&1 &
-spinner $!
+echo "📦 Uitpakken..."
+run_step "Theme uitpakken..." tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR"
 
-# Zoek theme directory
 THEME_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "stellar-theme-*")
 if [ ! -d "$THEME_DIR" ]; then
-  echo "❌ Theme-map niet gevonden."
-  exit 1
+    echo "❌ Theme-map niet gevonden."
+    exit 1
 fi
 
-# Bestanden kopiëren
-echo -n "🔁 Bestanden kopiëren naar /var/www/pterodactyl... "
-cp -r "$THEME_DIR/"* /var/www/pterodactyl/ > /dev/null 2>&1 &
-spinner $!
+echo "🔁 Bestanden kopiëren naar /var/www/pterodactyl..."
+run_step "Bestanden kopiëren..." cp -r "$THEME_DIR/"* /var/www/pterodactyl/
 
-# Machtigingen
-echo -n "🔑 Machtigingen instellen... "
-(chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl) > /dev/null 2>&1 &
-spinner $!
+echo "🔑 Machtigingen instellen..."
+run_step "Rechten instellen..." bash -c "chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl"
 
 cd /var/www/pterodactyl
 
-# Node en Yarn checken/installeren
 if command -v node > /dev/null 2>&1 && command -v yarn > /dev/null 2>&1; then
     echo "✅ Node.js en Yarn zijn al geïnstalleerd."
 else
-    echo -n "🔧 Node.js en Yarn installeren... "
-    (
+    echo "🔧 Node.js en Yarn installeren..."
+    run_step "Node.js + Yarn installeren..." bash -c '
         sudo apt-get install -y ca-certificates curl gnupg
         sudo mkdir -p /etc/apt/keyrings
         curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
@@ -64,40 +62,27 @@ else
         sudo apt-get update
         sudo apt-get install -y nodejs
         sudo npm install -g yarn
-    ) > /dev/null 2>&1 &
-    spinner $!
+    '
 fi
 
-# react-feather installeren
-echo -n "📦 react-feather installeren... "
-yarn add react-feather > /dev/null 2>&1 &
-spinner $!
+echo "📦 react-feather installeren..."
+run_step "react-feather installeren..." yarn add react-feather
 
-# Database migreren
-echo -n "🛠️ Database migreren... "
-php artisan migrate --force > /dev/null 2>&1 &
-spinner $!
+echo "🛠️ Database migreren..."
+run_step "Database migreren..." php artisan migrate --force
 
-# Node legacy provider instellen
-echo -n "⚙️ Node legacy provider instellen... "
+echo "⚙️ Node legacy provider instellen..."
 export NODE_OPTIONS=--openssl-legacy-provider
-sleep 1 &
-spinner $!
+sleep 1  # kleine wacht nodig om spinner te triggeren
+run_step "Node legacy provider instellen..." sleep 1
 
-# Build maken
-echo -n "🏗️ Productie build maken... "
-yarn build:production > /dev/null 2>&1 &
-spinner $!
+echo "🏗️ Productie build maken..."
+run_step "Build maken..." yarn build:production
 
-# Cache legen
-echo -n "🧹 Laravel views cache legen... "
-php artisan view:clear > /dev/null 2>&1 &
-spinner $!
+echo "🧹 Laravel views cache legen..."
+run_step "Cache legen..." php artisan view:clear
 
-# Webserver herstarten
-echo -n "🔄 Webserver herstarten... "
-sudo systemctl restart nginx > /dev/null 2>&1 || true &
-spinner $!
+echo "🔄 Webserver herstarten..."
+run_step "Webserver herstarten..." sudo systemctl restart nginx || true
 
-# Klaar
 echo "✅ Theme succesvol geïnstalleerd!"
