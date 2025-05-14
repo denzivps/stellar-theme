@@ -48,12 +48,15 @@ run_step "Bestanden kopiëren..." cp -r "$THEME_DIR/"* /var/www/pterodactyl/
 echo "🔑 Machtigingen instellen..."
 run_step "Rechten instellen..." bash -c "chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl"
 
-# 💖 Bedankje + hart + enter
+# 💖 Stap 1: Bedankt-bericht
 echo -e "\e[95m"
-echo
 echo "✅ Bedankt voor het gebruiken van deze installer!"
+echo
+echo "Druk op Enter om het hart te tonen..."
 echo -e "\e[0m"
-sleep 2
+read -r
+
+# 💖 Stap 2: Hart tonen
 echo -e "\e[95m"
 echo "        ******       ******"
 echo "      **********   **********"
@@ -68,13 +71,10 @@ echo "            ***********"
 echo "              *******"
 echo "                ***"
 echo "                 *"
-echo -e "\e[0m"
-echo -e "\e[95m"
 echo
 echo "Druk op Enter om verder te gaan..."
 echo -e "\e[0m"
 read -r
-echo
 
 cd /var/www/pterodactyl
 
