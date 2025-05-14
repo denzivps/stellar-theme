@@ -27,11 +27,12 @@ TEMP_DIR=$(mktemp -d)
 # Download theme
 echo "⏬ Theme downloaden..."
 curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz" > /dev/null 2>&1 &
-show_loading $!
+show_spinner $!
 
 # Extract theme
 echo "📦 Uitpakken..."
 tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR" > /dev/null 2>&1
+show_spinner $!
 
 # Find extracted theme directory
 THEME_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "stellar-theme-*")
@@ -44,6 +45,7 @@ fi
 # Copy theme files
 echo "🔁 Bestanden kopiëren naar /var/www/pterodactyl..."
 cp -r "$THEME_DIR/"* /var/www/pterodactyl/ > /dev/null 2>&1
+show_spinner $!
 
 # Change ownership and permissions
 chown -R www-data:www-data /var/www/pterodactyl
@@ -65,30 +67,37 @@ else
     sudo apt-get install -y nodejs > /dev/null 2>&1
     sudo npm install -g yarn > /dev/null 2>&1
 fi
+show_spinner $!
 
 # Install react-feather
 echo "📦 react-feather installeren..."
 yarn add react-feather > /dev/null 2>&1
+show_spinner $!
 
 # Migrate database
 echo "🛠️ Database migreren..."
 php artisan migrate --force > /dev/null 2>&1
+show_spinner $!
 
 # Set Node.js legacy provider
 echo "⚙️ Node legacy provider instellen..."
 export NODE_OPTIONS=--openssl-legacy-provider
+show_spinner $!
 
 # Build production
 echo "🏗️ Productie build maken..."
 yarn build:production > /dev/null 2>&1
+show_spinner $!
 
 # Clear Laravel view cache
 echo "🧹 Laravel views cache legen..."
 php artisan view:clear > /dev/null 2>&1
+show_spinner $!
 
 # Restart webserver
 echo "🔄 Webserver herstarten..."
 sudo systemctl restart nginx > /dev/null 2>&1 || true
+show_spinner $!
 
 # Done
 echo "✅ Theme succesvol geïnstalleerd!"
