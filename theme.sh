@@ -48,22 +48,13 @@ run_step "Bestanden kopiëren..." cp -r "$THEME_DIR/"* /var/www/pterodactyl/
 echo "🔑 Machtigingen instellen..."
 run_step "Rechten instellen..." bash -c "chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl"
 
-# 💖 Stap 1: Bedankt-bericht
+# Stap 1: Bedankt
 echo -e "\e[95m"
 echo "✅ Bedankt voor het gebruiken van deze installer!"
+sleep 2  # wacht 2 seconden
+
+# Stap 2: Hart
 echo
-
-# Controleer of we toegang hebben tot het toetsenbord
-if [ -t 0 ]; then
-    echo "Druk op Enter om het hart te tonen..."
-    read -r
-else
-    echo "❌ Kan geen interactie aangaan met gebruiker (geen terminal beschikbaar)."
-    exit 1
-fi
-
-# 💖 Stap 2: Hart tonen
-echo -e "\e[95m"
 echo "        ******       ******"
 echo "      **********   **********"
 echo "    ************* *************"
@@ -78,14 +69,8 @@ echo "              *******"
 echo "                ***"
 echo "                 *"
 echo
+sleep 3  # wacht nog 3 seconden
 
-if [ -t 0 ]; then
-    echo "Druk op Enter om verder te gaan..."
-    read -r
-else
-    echo "❌ Kan geen interactie aangaan met gebruiker (geen terminal beschikbaar)."
-    exit 1
-fi
 echo -e "\e[0m"
 
 cd /var/www/pterodactyl
