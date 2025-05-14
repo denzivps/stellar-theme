@@ -23,29 +23,29 @@ THEME_URL="https://github.com/denzivps/stellar-theme/archive/refs/heads/main.tar
 TEMP_DIR=$(mktemp -d)
 
 # Download theme
-echo -n "Theme downloaden... "
+echo -n "⏬ Theme downloaden... "
 curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz" > /dev/null 2>&1 &
 spinner $!
 
 # Uitpakken
-echo -n "Uitpakken... "
+echo -n "📦 Uitpakken... "
 tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR" > /dev/null 2>&1 &
 spinner $!
 
 # Zoek theme directory
 THEME_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "stellar-theme-*")
 if [ ! -d "$THEME_DIR" ]; then
-  echo "[!] Theme-map niet gevonden."
+  echo "❌ Theme-map niet gevonden."
   exit 1
 fi
 
 # Bestanden kopiëren
-echo -n "Bestanden kopiëren naar /var/www/pterodactyl... "
+echo -n "🔁 Bestanden kopiëren naar /var/www/pterodactyl... "
 cp -r "$THEME_DIR/"* /var/www/pterodactyl/ > /dev/null 2>&1 &
 spinner $!
 
 # Machtigingen
-echo -n "Machtigingen instellen... "
+echo -n "🔑 Machtigingen instellen... "
 (chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl) > /dev/null 2>&1 &
 spinner $!
 
@@ -53,9 +53,9 @@ cd /var/www/pterodactyl
 
 # Node en Yarn checken/installeren
 if command -v node > /dev/null 2>&1 && command -v yarn > /dev/null 2>&1; then
-    echo "Node.js en Yarn zijn al geïnstalleerd."
+    echo "✅ Node.js en Yarn zijn al geïnstalleerd."
 else
-    echo -n "Node.js en Yarn installeren... "
+    echo -n "🔧 Node.js en Yarn installeren... "
     (
         sudo apt-get install -y ca-certificates curl gnupg
         sudo mkdir -p /etc/apt/keyrings
@@ -69,35 +69,35 @@ else
 fi
 
 # react-feather installeren
-echo -n "react-feather installeren... "
+echo -n "📦 react-feather installeren... "
 yarn add react-feather > /dev/null 2>&1 &
 spinner $!
 
 # Database migreren
-echo -n "Database migreren... "
+echo -n "🛠️ Database migreren... "
 php artisan migrate --force > /dev/null 2>&1 &
 spinner $!
 
 # Node legacy provider instellen
-echo -n "Node legacy provider instellen... "
+echo -n "⚙️ Node legacy provider instellen... "
 export NODE_OPTIONS=--openssl-legacy-provider
 sleep 1 &
 spinner $!
 
 # Build maken
-echo -n "Productie build maken... "
+echo -n "🏗️ Productie build maken... "
 yarn build:production > /dev/null 2>&1 &
 spinner $!
 
 # Cache legen
-echo -n "Laravel views cache legen... "
+echo -n "🧹 Laravel views cache legen... "
 php artisan view:clear > /dev/null 2>&1 &
 spinner $!
 
 # Webserver herstarten
-echo -n "Webserver herstarten... "
+echo -n "🔄 Webserver herstarten... "
 sudo systemctl restart nginx > /dev/null 2>&1 || true &
 spinner $!
 
 # Klaar
-echo "✔ Theme succesvol geïnstalleerd!"
+echo "✅ Theme succesvol geïnstalleerd!"
