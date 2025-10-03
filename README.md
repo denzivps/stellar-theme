@@ -1,6 +1,6 @@
 # theme installer
 
-This automated script allows you to install your thema effortlessly in just a few seconds.
+This automated script allows you to install your theme effortlessly in just a few seconds.
 
 ## How to Use
 To install the theme, simply run the following command:
