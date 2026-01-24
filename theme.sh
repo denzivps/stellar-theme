@@ -1,8 +1,9 @@
 #!/bin/bash
 
+# Zorg dat het script stopt bij fouten
 set -e
 
-# Spinner functie (ASCII, werkt altijd)
+# --- FUNCTIES ---
 show_spinner() {
     local pid=$1
     local delay=0.1
@@ -17,7 +18,6 @@ show_spinner() {
     tput cnorm
 }
 
-# Functie om spinner te combineren met commando
 run_step() {
     SPINNER_TEXT="$1"
     shift
@@ -25,89 +25,69 @@ run_step() {
     show_spinner $!
 }
 
-# Theme URL + tijdelijke map
+# --- CONFIGURATIE ---
 THEME_URL="https://github.com/denzivps/stellar-theme/archive/refs/heads/main.tar.gz"
 TEMP_DIR=$(mktemp -d)
+PTERO_DIR="/var/www/pterodactyl"
 
-# Duidelijke echo's met iconen
-echo "⏬ Theme downloaden..."
-run_step "Theme downloaden..." curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz"
+echo -e "\e[36m🚀 Start Stellar Theme Installatie met Webpack-Fix...\e[0m"
 
-echo "📦 Uitpakken..."
-run_step "Theme uitpakken..." tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR"
+# 1. Node.js 22 & Yarn Installeren/Upgraden
+echo "🔧 Node.js 22 en Yarn voorbereiden..."
+run_step "Node.js 22 installeren..." bash -c '
+    apt-get update
+    apt-get install -y ca-certificates curl gnupg
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg --yes
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+    apt-get update
+    apt-get install -y nodejs
+    npm install -g yarn
+'
+
+# 2. Theme downloaden en uitpakken
+echo "⏬ Theme ophalen..."
+run_step "Downloaden..." curl -L "$THEME_URL" -o "$TEMP_DIR/theme.tar.gz"
+run_step "Uitpakken..." tar -xzf "$TEMP_DIR/theme.tar.gz" -C "$TEMP_DIR"
 
 THEME_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "stellar-theme-*")
-if [ ! -d "$THEME_DIR" ]; then
-    echo "❌ Theme-map niet gevonden."
-    exit 1
-fi
+echo "🔁 Bestanden overzetten..."
+cp -r "$THEME_DIR/"* "$PTERO_DIR/"
 
-echo "🔁 Bestanden kopiëren naar /var/www/pterodactyl..."
-run_step "Bestanden kopiëren..." cp -r "$THEME_DIR/"* /var/www/pterodactyl/
+# 3. Naar de Pterodactyl map
+cd "$PTERO_DIR"
 
-echo "🔑 Machtigingen instellen..."
-run_step "Rechten instellen..." bash -c "chown -R www-data:www-data /var/www/pterodactyl && chmod -R 755 /var/www/pterodactyl"
+# 4. Vereiste extra pakketten installeren
+echo "📦 Node modules installeren..."
+run_step "Pakketten toevoegen (react-feather & path-browserify)..." yarn add react-feather path-browserify
 
-# Stap 1: Bedankt
-echo -e "\e[95m"
-echo "✅ Bedankt voor het gebruiken van deze installer!"
-sleep 2  # wacht 2 seconden
+# 5. DE WEBPACK FIX (Automatische bewerking van webpack.config.js)
+echo "🛠️ Webpack config patchen..."
+run_step "Patch toepassen..." bash -c '
+    if ! grep -q "path-browserify" webpack.config.js; then
+        # Zoek naar symlinks: false, en voeg de fallback daaronder toe
+        sed -i "/symlinks: false,/a \        fallback: { \"path\": require.resolve(\"path-browserify\") }," webpack.config.js
+    fi
+'
 
-# Stap 2: Hart
-echo
-echo "        ******       ******"
-echo "      **********   **********"
-echo "    ************* *************"
-echo "   *****************************"
-echo "   *****************************"
-echo "    ***************************"
-echo "      ***********************"
-echo "        *******************"
-echo "          ***************"
-echo "            ***********"
-echo "              *******"
-echo "                ***"
-echo "                 *"
-echo
-sleep 3  # wacht nog 3 seconden
+# 6. Build proces
+echo "🏗️ Productie build maken (dit duurt enkele minuten)..."
+export NODE_OPTIONS="--openssl-legacy-provider --max-old-space-size=4096"
+# We draaien deze zonder run_step om eventuele fouten live te zien
+yarn build:production
 
-echo -e "\e[0m"
-
-cd /var/www/pterodactyl
-
-if command -v node > /dev/null 2>&1 && command -v yarn > /dev/null 2>&1; then
-    echo "✅ Node.js en Yarn zijn al geïnstalleerd."
-else
-    echo "🔧 Node.js en Yarn installeren..."
-    run_step "Node.js + Yarn installeren..." bash -c '
-        sudo apt-get install -y ca-certificates curl gnupg
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
-        sudo apt-get update
-        sudo apt-get install -y nodejs
-        sudo npm install -g yarn
-    '
-fi
-
-echo "📦 react-feather installeren..."
-run_step "react-feather installeren..." yarn add react-feather
-
-echo "🛠️ Database migreren..."
+# 7. Afronden (Database, Cache, Rechten)
+echo "🧹 Systeem optimaliseren..."
 run_step "Database migreren..." php artisan migrate --force
-
-echo "⚙️ Node legacy provider instellen..."
-export NODE_OPTIONS=--openssl-legacy-provider
-sleep 1  # kleine wacht nodig om spinner te triggeren
-run_step "Node legacy provider instellen..." sleep 1
-
-echo "🏗️ Productie build maken..."
-run_step "Build maken..." yarn build:production
-
-echo "🧹 Laravel views cache legen..."
 run_step "Cache legen..." php artisan view:clear
+run_step "Rechten herstellen..." chown -R www-data:www-data "$PTERO_DIR"/*
 
+# 8. Webserver herstarten
 echo "🔄 Webserver herstarten..."
-run_step "Webserver herstarten..." sudo systemctl restart nginx || true
+systemctl restart nginx || true
 
-echo "✅ Theme succesvol geïnstalleerd!"
+echo -e "\n\e[92m✅ INSTALLATIE VOLTOOID!\e[0m"
+echo -e "\e[33mJe Stellar Theme is nu geïnstalleerd met de juiste Node 22 instellingen.\e[0m"
+
+# Schoonmaak
+rm -rf "$TEMP_DIR"
