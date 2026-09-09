@@ -42,6 +42,7 @@ install_theme() {
     # 1. Node.js 22 & Yarn Setup
     echo "🔧 Setting up Node.js 22 and Yarn..."
     run_step "Installing Node.js 22 & Yarn..." bash -c '
+        export DEBIAN_FRONTEND=noninteractive
         apt-get update
         apt-get install -y ca-certificates curl gnupg
         mkdir -p /etc/apt/keyrings
@@ -104,7 +105,7 @@ install_theme() {
 # --- UNINSTALL / RESTORE FUNCTION ---
 uninstall_theme() {
     echo -e "\n\e[33m⚠️  Warning: This will restore default Pterodactyl panel files and remove custom theme modifications.\e[0m"
-    read -rp "Are you sure you want to proceed? (y/n): " confirm
+    read -rp "Are you sure you want to proceed? (y/n): " confirm < /dev/tty
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         echo -e "\e[31mOperation cancelled.\e[0m\n"
         return
@@ -151,7 +152,9 @@ echo " 1) Install Stellar Theme"
 echo " 2) Uninstall Theme (Restore Default Pterodactyl)"
 echo " 3) Exit"
 echo "=================================================="
-read -rp "Please select an option [1-3]: " CHOICE
+
+# Read from /dev/tty to support "curl ... | bash" execution
+read -rp "Please select an option [1-3]: " CHOICE < /dev/tty
 
 case "$CHOICE" in
     1)
