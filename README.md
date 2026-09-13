@@ -1,4 +1,4 @@
-# theme installer
+# stellar theme installer
 
 This automated script allows you to install your theme effortlessly in just a few seconds.
 
